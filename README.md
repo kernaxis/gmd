@@ -55,7 +55,7 @@ Shell and logs from TUI
 🚀 Installation
 
 Install gmd with a single command:
-curl -sSfL https://raw.githubusercontent.com/kernaxis/gmd/main/install.sh | sh
+curl -sSfL https://raw.githubusercontent.com/kernaxis/gmd/master/install.sh | sh
 
 The installer automatically:
 	•	detects your OS and CPU architecture
