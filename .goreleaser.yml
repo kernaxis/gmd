@@ -1,0 +1,41 @@
+project_name: gmd
+
+builds:
+  - id: gmd
+    main: .
+    binary: gmd
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - >
+        -X github.com/kernaxis/gmd/cmd.version={{ .Version }}
+        -X github.com/kernaxis/gmd/cmd.buildDate={{ .Now.Format "2006-01-02" }}
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - format: tar.gz
+    name_template: "{{ .Binary }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    #files:
+      #- LICENSE
+      #- README.md
+
+checksum:
+  name_template: 'checksums.txt'
+
+release:
+  github:
+    owner: kernaxis
+    name: gmd
+
+# changelog:
+#   sort: asc
+#   filters:
+#     exclude:
+#       - '^docs:'
+#       - '^test:'
+
