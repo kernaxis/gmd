@@ -19,7 +19,7 @@ var updateCmd = &cobra.Command{
 	Short: "Update gmd",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		err := update("v0.0.1")
+		err := update(version)
 		if err != nil {
 			log.Fatal(err)
 		}
