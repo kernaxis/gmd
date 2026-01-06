@@ -41,6 +41,12 @@ func NewContainerItem(dc types.Container) ContainerItem {
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
+
+		if k == "host" {
+			c.ip4Address = "host"
+			break
+		}
+
 		net := dc.NetworkSettings.Networks[k]
 		if net.IPAddress != "" {
 			c.ip4Address = net.IPAddress
