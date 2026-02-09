@@ -33,13 +33,14 @@ type Model struct {
 }
 
 type listKeyMap struct {
-	toggleAll        key.Binding
-	showLogs         key.Binding
-	restartContainer key.Binding
-	startContainer   key.Binding
-	stopContainer    key.Binding
-	updateContainer  key.Binding
-	execTerminal     key.Binding
+	toggleAll         key.Binding
+	showLogs          key.Binding
+	restartContainer  key.Binding
+	startContainer    key.Binding
+	stopContainer     key.Binding
+	updateContainer   key.Binding
+	recreateContainer key.Binding
+	execTerminal      key.Binding
 }
 
 var keyMap = &listKeyMap{
@@ -67,6 +68,10 @@ var keyMap = &listKeyMap{
 		key.WithKeys("u"),
 		key.WithHelp("u", "update container"),
 	),
+	recreateContainer: key.NewBinding(
+		key.WithKeys("U"),
+		key.WithHelp("U", "recreate container"),
+	),
 	execTerminal: key.NewBinding(
 		key.WithKeys("x"),
 		key.WithHelp("x", "open terminal"),
@@ -84,6 +89,7 @@ func New(cli *client.Client, cache *cache.Cache) Model {
 			keyMap.toggleAll,
 			keyMap.showLogs,
 			keyMap.updateContainer,
+			keyMap.recreateContainer,
 			keyMap.restartContainer,
 			keyMap.startContainer,
 			keyMap.stopContainer,
@@ -111,7 +117,7 @@ func (m Model) Init() tea.Cmd {
 }
 
 func (m Model) IsSearching() bool {
-	return m.list.IsFiltered()
+	return m.list.SettingFilter()
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -125,6 +131,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		if m.IsSearching() {
+			break
+		}
 		switch {
 		case key.Matches(msg, keyMap.toggleAll):
 			m.ToggleAll()
@@ -165,6 +174,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return u
 					})
 				}
+			}
+			return m, nil
+
+		case key.Matches(msg, keyMap.recreateContainer):
+			if c, ok := m.list.SelectedItem().(ContainerItem); ok {
+				return m, commands.ContainerCmd(m.cli, commands.RecreateContainerAction, c.id)
 			}
 			return m, nil
 		case key.Matches(msg, keyMap.execTerminal):

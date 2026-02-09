@@ -9,9 +9,10 @@ type SwitchPageMsg struct {
 type Action string
 
 const (
-	StartContainerAction   Action = "start"
-	StopContainerAction    Action = "stop"
-	RestartContainerAction Action = "restart"
+	StartContainerAction    Action = "start"
+	StopContainerAction     Action = "stop"
+	RestartContainerAction  Action = "restart"
+	RecreateContainerAction Action = "recreate"
 )
 
 type ContainerActionMsg struct {

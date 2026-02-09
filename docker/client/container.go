@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 
@@ -49,6 +50,35 @@ func (c *Client) DeleteContainer(id string) error {
 // It returns an error if the container could not be inspected.
 func (c *Client) ContainerInspect(id string) (container.InspectResponse, error) {
 	return c.cli.ContainerInspect(context.Background(), id)
+}
+
+func (c *Client) RecreateContainer(id string) (string, error) {
+	containerConfig, err := c.ContainerInspect(id)
+	if err != nil {
+		return "", fmt.Errorf("unable to recreate container %s : %w", err)
+	}
+
+	err = c.StopContainer(id)
+	if err != nil {
+		return "", fmt.Errorf("unable to recreate container %s : %w", err)
+	}
+
+	err = c.DeleteContainer(id)
+	if err != nil {
+		return "", fmt.Errorf("unable to recreate container %s : %w", err)
+	}
+
+	r, err := c.CreateContainerFromConfig(containerConfig)
+	if err != nil {
+		return "", fmt.Errorf("unable to recreate container %s : %w", err)
+	}
+
+	err = c.StartContainer(r.ID)
+	if err != nil {
+		return "", fmt.Errorf("unable to recreate container %s : %w", err)
+	}
+
+	return r.ID, nil
 }
 
 // ContainerStats returns the stats of a container with the given ID.

@@ -26,6 +26,8 @@ func ContainerCmd(cli *client.Client, action Action, id string) tea.Cmd {
 			msg.Err = cli.StopContainer(id)
 		case RestartContainerAction:
 			msg.Err = cli.RestartContainer(id)
+		case RecreateContainerAction:
+			msg.ContainerID, msg.Err = cli.RecreateContainer(id)
 		}
 		return msg
 	}
