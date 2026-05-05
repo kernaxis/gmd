@@ -140,7 +140,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case key.Matches(msg, keyMap.showLogs):
-			cmd := exec.Command("docker", "logs", "-f", "--tail=200", m.list.SelectedItem().(ContainerItem).id)
+			shell := "docker logs -f --tail=200 " + m.list.SelectedItem().(ContainerItem).id + " && printf '\nPress enter key to close logs\n' && read ans"
+			cmd := exec.Command("sh", "-c", shell)
+			//cmd := exec.Command("docker", "logs", "-f", "--tail=200", m.list.SelectedItem().(ContainerItem).id)
 			return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
 				return nil
 			})

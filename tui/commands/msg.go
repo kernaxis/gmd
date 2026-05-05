@@ -15,6 +15,21 @@ const (
 	RecreateContainerAction Action = "recreate"
 )
 
+func (a Action) DoneString() string {
+	switch a {
+	case StartContainerAction:
+		return "started"
+	case StopContainerAction:
+		return "stopped"
+	case RestartContainerAction:
+		return "restarted"
+	case RecreateContainerAction:
+		return "recreated"
+	default:
+		return ""
+	}
+}
+
 type ContainerActionMsg struct {
 	ContainerID string
 	Action      Action

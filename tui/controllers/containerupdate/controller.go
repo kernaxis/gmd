@@ -15,6 +15,7 @@ import (
 )
 
 type ControllerUpdateMsg struct {
+	RecreateOnly bool
 }
 
 type createResponse struct {
