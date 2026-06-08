@@ -185,7 +185,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case key.Matches(msg, keyMap.execTerminal):
-			cmd := exec.Command("docker", "exec", "-it", m.list.SelectedItem().(ContainerItem).id, "/bin/sh")
+			cmd := exec.Command("docker", "exec", "-it", m.list.SelectedItem().(ContainerItem).id, "sh", "-c", "command -v bash >/dev/null 2>&1 && exec bash || exec sh")
 			return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
 				return nil
 			})
