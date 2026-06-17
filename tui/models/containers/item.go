@@ -6,7 +6,6 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/docker/docker/api/types/container"
-	"github.com/kernaxis/gmd/docker/types"
 	style "github.com/kernaxis/gmd/tui/styles"
 )
 
@@ -25,7 +24,7 @@ type ContainerItem struct {
 	show bool
 }
 
-func NewContainerItem(dc types.Container) ContainerItem {
+func NewContainerItem(dc container.InspectResponse) ContainerItem {
 	c := ContainerItem{
 		id:         dc.ID,
 		name:       dc.Name,

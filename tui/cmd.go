@@ -2,31 +2,23 @@ package tui
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/kernaxis/gmd/docker/cache"
+	"github.com/kernaxis/gmd/cachalot"
+	"github.com/kernaxis/gmd/tui/commands"
 )
 
-type CacheStartMsg struct {
-	Err error
-}
-
-func StartMonitorCache(m *cache.Cache) tea.Cmd {
+// StartDockerClient connects to the Docker daemon and takes the initial
+// snapshot of containers and images. It runs as a tea.Cmd (in a goroutine)
+// so the TUI can render immediately while this (blocking) call completes.
+func StartDockerClient() tea.Cmd {
 	return func() tea.Msg {
-		err := m.LoadAndStart()
-		return CacheStartMsg{Err: err}
+		cli, err := cachalot.NewClient()
+		return commands.ClientReadyMsg{Cli: cli, Err: err}
 	}
 }
 
-func WaitDockerEvent(ch <-chan cache.Event) tea.Cmd {
+func WaitDockerEvent(ch <-chan cachalot.Event) tea.Cmd {
 	return func() tea.Msg {
-		//var now = time.Now()
-		var e cache.Event
-
-		for {
-			e = <-ch
-			//if e.EventType != cache.ContainerStatsEventType || time.Since(now) > 1*time.Second {
-			return e
-			//}
-		}
+		return <-ch
 	}
 }
 

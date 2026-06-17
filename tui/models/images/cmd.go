@@ -4,6 +4,7 @@ import (
 	"context"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/docker/docker/api/types/image"
 )
 
 type ImagesLoadedMsg struct {
@@ -18,7 +19,7 @@ type DeleteImageMsg struct {
 
 func (m Model) FetchImagesCmd() tea.Cmd {
 	return func() tea.Msg {
-		images := m.cache.Images()
+		images := m.cli.Images()
 		imagesItems := make([]ImageItem, len(images))
 		for i, img := range images {
 			imagesItems[i] = ImageItem(img)
@@ -29,7 +30,7 @@ func (m Model) FetchImagesCmd() tea.Cmd {
 
 func (m Model) DeleteImagesCmd(id string) tea.Cmd {
 	return func() tea.Msg {
-		err := m.cli.DeleteImage(context.Background(), id)
+		_, err := m.cli.ImageRemove(context.Background(), id, image.RemoveOptions{Force: false, PruneChildren: true})
 		if err != nil {
 			return DeleteImageMsg{ID: id, Err: err}
 		}

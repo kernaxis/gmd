@@ -12,9 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/docker/docker/api/types/container"
-	"github.com/kernaxis/gmd/docker/cache"
-	"github.com/kernaxis/gmd/docker/client"
-	"github.com/kernaxis/gmd/docker/types"
+	"github.com/kernaxis/gmd/cachalot"
 	"github.com/kernaxis/gmd/tui/commands"
 	"github.com/kernaxis/gmd/tui/controllers/containerstats"
 	"github.com/kernaxis/gmd/tui/models/containerupdate"
@@ -22,8 +20,7 @@ import (
 )
 
 type Model struct {
-	cli                   *client.Client
-	cache                 *cache.Cache
+	cli                   *cachalot.Client
 	list                  list.Model
 	loaded                bool
 	status                string
@@ -78,7 +75,7 @@ var keyMap = &listKeyMap{
 	),
 }
 
-func New(cli *client.Client, cache *cache.Cache) Model {
+func New() Model {
 
 	items := []list.Item{}
 
@@ -98,15 +95,13 @@ func New(cli *client.Client, cache *cache.Cache) Model {
 	}
 
 	m := Model{
-		cli:                   cli,
-		cache:                 cache,
 		list:                  l,
 		all:                   false,
 		checkUpdateInProgress: make(map[string]struct{}),
 		//imgs:   images,
 	}
 
-	m.statsController = containerstats.New(cli)
+	m.statsController = containerstats.New()
 	//m.statsController.Start()
 
 	return m
@@ -170,9 +165,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, keyMap.updateContainer):
 			if c, ok := m.list.SelectedItem().(ContainerItem); ok {
 				if c.update != nil && *c.update {
-					c, _ := m.cache.Container(c.id)
+					cont, _ := m.cli.Container(c.id)
 					return m, commands.SwitchPageCmd(func() tea.Model {
-						u := containerupdate.New(c, m.cli)
+						u := containerupdate.New(cont, m.cli)
 						return u
 					})
 				}
@@ -190,15 +185,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return nil
 			})
 		}
-	case cache.Event:
-		if msg.EventType == cache.ContainersLoadedEventType {
+	case commands.ClientReadyMsg:
+		if msg.Err == nil {
+			m.cli = msg.Cli
+			m.statsController.SetClient(msg.Cli)
+		}
+	case cachalot.Event:
+		if msg.Type == cachalot.ContainersLoaded {
 			if !m.loaded {
 				m.loaded = true
 			}
 			log.Printf("received container event %+v", msg)
 			cmds = append(cmds, m.initialLoad())
 		}
-		if msg.EventType == cache.ContainerEventType {
+		if msg.Type == cachalot.ContainerUpdated {
 			if m.loaded {
 				log.Printf("received container event %+v", msg)
 				cmds = append(cmds, m.handleContainerEvent(msg))
@@ -260,11 +260,11 @@ func (m Model) View() string {
 // retrieved containers. It also checks for updates for all containers
 func (m *Model) initialLoad() tea.Cmd {
 
-	var containers = m.cache.Containers()
+	var containers = m.cli.Containers()
 
 	var cmds = make([]tea.Cmd, 0, len(containers))
 
-	slices.SortFunc(containers, func(a, b types.Container) int {
+	slices.SortFunc(containers, func(a, b container.InspectResponse) int {
 		return strings.Compare(a.Name, b.Name)
 	})
 
@@ -295,8 +295,8 @@ func (m *Model) initialLoad() tea.Cmd {
 // If the old container is found, it updates the old container with the new container.
 //
 // The function returns a tea.Cmd that executes the update if needed.
-func (m *Model) handleContainerEvent(msg cache.Event) tea.Cmd {
-	newContainer, err := m.cache.Container(msg.ActorID)
+func (m *Model) handleContainerEvent(msg cachalot.Event) tea.Cmd {
+	newContainer, err := m.cli.Container(msg.ActorID)
 
 	if err != nil {
 		m.removeContainer(msg.ActorID)
@@ -344,8 +344,8 @@ func (m *Model) removeContainer(id string) {
 // The function returns a command to check for container update.
 //
 // The function also renders the content of the new container.
-func (m *Model) addNewContainer(container types.Container) tea.Cmd {
-	newContainer := NewContainerItem(container)
+func (m *Model) addNewContainer(cont container.InspectResponse) tea.Cmd {
+	newContainer := NewContainerItem(cont)
 	newContainer.RenderContent()
 	items := m.list.Items()
 	items = append(items, newContainer)
@@ -357,7 +357,7 @@ func (m *Model) addNewContainer(container types.Container) tea.Cmd {
 	return CheckContainerUpdate(m.cli, newContainer.id)
 }
 
-func (m *Model) updateContainer(newContainer types.Container, oldContainer ContainerItem, index int) tea.Cmd {
+func (m *Model) updateContainer(newContainer container.InspectResponse, oldContainer ContainerItem, index int) tea.Cmd {
 	var cmd tea.Cmd = nil
 	c := NewContainerItem(newContainer)
 

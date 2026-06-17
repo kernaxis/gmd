@@ -3,8 +3,7 @@ package maintab
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/kernaxis/gmd/docker/cache"
-	"github.com/kernaxis/gmd/docker/client"
+	"github.com/kernaxis/gmd/cachalot"
 	"github.com/kernaxis/gmd/tui/componants"
 	"github.com/kernaxis/gmd/tui/models/containers"
 	"github.com/kernaxis/gmd/tui/models/images"
@@ -27,20 +26,18 @@ const (
 )
 
 type Model struct {
-	cache     *cache.Cache
 	lists     []componants.ListModel
 	activeTab int
 }
 
-func New(cli *client.Client, cache *cache.Cache) Model {
+func New() Model {
 
 	m := Model{
-		cache: cache,
 		lists: make([]componants.ListModel, 2),
 	}
 
-	m.lists[imagesTabIndex] = images.New(cli, cache)
-	m.lists[containersTabIndex] = containers.New(cli, cache)
+	m.lists[imagesTabIndex] = images.New()
+	m.lists[containersTabIndex] = containers.New()
 	return m
 }
 
@@ -86,13 +83,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.lists[m.activeTab] = l
 		return m, cmd
 
-	case cache.Event:
-		switch msg.EventType {
-		case cache.ImagesLoadedEventType, cache.ImageEventType:
+	case cachalot.Event:
+		switch msg.Type {
+		case cachalot.ImagesLoaded, cachalot.ImageUpdated:
 			l, cmd := m.lists[imagesTabIndex].Update(msg)
 			m.lists[imagesTabIndex] = l
 			return m, cmd
-		case cache.ContainersLoadedEventType, cache.ContainerEventType /*cache.ContainerStatsEventType*/ :
+		case cachalot.ContainersLoaded, cachalot.ContainerUpdated:
 			l, cmd := m.lists[containersTabIndex].Update(msg)
 			m.lists[containersTabIndex] = l
 			return m, cmd

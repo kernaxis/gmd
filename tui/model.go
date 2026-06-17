@@ -2,8 +2,8 @@ package tui
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/kernaxis/gmd/docker/cache"
-	"github.com/kernaxis/gmd/docker/client"
+
+	"github.com/kernaxis/gmd/cachalot"
 	"github.com/kernaxis/gmd/tui/commands"
 	"github.com/kernaxis/gmd/tui/componants"
 	"github.com/kernaxis/gmd/tui/models/containers"
@@ -15,30 +15,17 @@ import (
 // ---------------------------------------------------
 
 type Model struct {
-	cli         *client.Client
-	dockerCache *cache.Cache
-	stack       []tea.Model
+	cli    *cachalot.Client
+	stack  []tea.Model
+
 
 	screeWidth   int
 	screenHeight int
 }
 
 func NewModel() (Model, error) {
-	cli, err := client.NewClient()
-	if err != nil {
-		return Model{}, err
-	}
-	cache := cache.NewCache(cli)
-
-	mainModel := maintab.New(cli, cache)
-
 	m := Model{
-		cli:         cli,
-		dockerCache: cache,
-	}
-
-	m.stack = []tea.Model{
-		mainModel,
+		stack: []tea.Model{maintab.New()},
 	}
 
 	return m, nil
@@ -47,8 +34,7 @@ func NewModel() (Model, error) {
 func (m Model) Init() tea.Cmd {
 	top := m.stack[len(m.stack)-1]
 	return tea.Batch(
-		StartMonitorCache(m.dockerCache),
-		WaitDockerEvent(m.dockerCache.Events()),
+		StartDockerClient(),
 		top.Init(),
 	)
 }
@@ -76,10 +62,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
-	case cache.Event:
+	case commands.ClientReadyMsg:
 		var cmd tea.Cmd
 		m.stack[0], cmd = m.stack[0].Update(msg)
-		return m, tea.Batch(WaitDockerEvent(m.dockerCache.Events()), cmd)
+		if msg.Err != nil {
+			toast := componants.Toast{Type: componants.ToastError, Message: "Unable to connect to Docker: " + msg.Err.Error()}
+			m.toasts = append(m.toasts, toast)
+			return m, cmd
+		}
+		m.cli = msg.Cli
+		return m, tea.Batch(WaitDockerEvent(m.cli.Updates()), cmd)
+
+	case cachalot.Event:
+		var cmd tea.Cmd
+		m.stack[0], cmd = m.stack[0].Update(msg)
+		return m, tea.Batch(WaitDockerEvent(m.cli.Updates()), cmd)
 
 	case containers.ContainerUpdateMsg:
 		var cmd tea.Cmd

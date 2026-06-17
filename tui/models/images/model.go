@@ -9,15 +9,13 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/kernaxis/gmd/docker/cache"
-	"github.com/kernaxis/gmd/docker/client"
-	"github.com/kernaxis/gmd/docker/types"
+	"github.com/kernaxis/gmd/cachalot"
+	"github.com/kernaxis/gmd/tui/commands"
 	style "github.com/kernaxis/gmd/tui/styles"
 )
 
 type Model struct {
-	cli    *client.Client
-	cache  *cache.Cache
+	cli    *cachalot.Client
 	list   list.Model
 	loaded bool
 	unused bool
@@ -40,7 +38,7 @@ var keyMap = &listKeyMap{
 	),
 }
 
-func New(cli *client.Client, cache *cache.Cache) Model {
+func New() Model {
 
 	items := []list.Item{}
 
@@ -54,9 +52,7 @@ func New(cli *client.Client, cache *cache.Cache) Model {
 	}
 
 	return Model{
-		cli:   cli,
-		cache: cache,
-		list:  l,
+		list: l,
 		//imgs:   images,
 	}
 }
@@ -103,15 +99,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = style.Success().Render("Image supprimée")
 		}
 		m.applyFilter()
-	case cache.Event:
-		if msg.EventType == cache.ImagesLoadedEventType {
+	case commands.ClientReadyMsg:
+		if msg.Err == nil {
+			m.cli = msg.Cli
+		}
+	case cachalot.Event:
+		if msg.Type == cachalot.ImagesLoaded {
 			if !m.loaded {
 				m.loaded = true
 			}
 			log.Printf("received images loaded event: %+v", msg)
 			m.applyFilter()
 		}
-		if msg.EventType == cache.ImageEventType {
+		if msg.Type == cachalot.ImageUpdated {
 			if m.loaded {
 				log.Printf("received image event: %+v", msg)
 				m.updateImage(msg.ActorID)
@@ -141,14 +141,14 @@ func (m *Model) applyFilter() {
 
 	log.Printf("image applying filter")
 
-	var images []types.Image
+	var images []cachalot.Image
 	if m.unused {
-		images = m.cache.ImagesUnused()
+		images = m.cli.ImagesUnused()
 	} else {
-		images = m.cache.Images()
+		images = m.cli.Images()
 	}
 
-	slices.SortFunc(images, func(a, b types.Image) int {
+	slices.SortFunc(images, func(a, b cachalot.Image) int {
 		return strings.Compare(a.Tag(), b.Tag())
 	})
 
@@ -162,11 +162,11 @@ func (m *Model) applyFilter() {
 }
 
 func (m *Model) updateImage(id string) {
-	newImage, err := m.cache.Image(id)
+	newImage, err := m.cli.Image(id)
 	for i, item := range m.list.Items() {
 		if item.(ImageItem).ID == id {
 			switch err {
-			case cache.ErrImageNotFound:
+			case cachalot.ErrImageNotFound:
 				m.list.RemoveItem(i)
 			case nil:
 				m.list.SetItem(i, ImageItem(newImage))

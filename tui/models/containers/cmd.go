@@ -2,7 +2,7 @@ package containers
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/kernaxis/gmd/docker/client"
+	"github.com/kernaxis/gmd/cachalot"
 	"github.com/kernaxis/gmd/tui/controllers/containerstats"
 )
 
@@ -12,7 +12,7 @@ type ContainerUpdateMsg struct {
 	Err         error
 }
 
-func CheckContainerUpdate(cli *client.Client, id string) tea.Cmd {
+func CheckContainerUpdate(cli *cachalot.Client, id string) tea.Cmd {
 	return func() tea.Msg {
 		update, err := cli.CheckUpdate(id)
 		return ContainerUpdateMsg{ContainerID: id, Update: update, Err: err}

@@ -1,9 +1,19 @@
 package commands
 
-import tea "github.com/charmbracelet/bubbletea"
+import (
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/kernaxis/gmd/cachalot"
+)
 
 type SwitchPageMsg struct {
 	Model tea.Model
+}
+
+// ClientReadyMsg signals that the cachalot.Client has finished connecting
+// and taking its initial snapshot of containers and images.
+type ClientReadyMsg struct {
+	Cli *cachalot.Client
+	Err error
 }
 
 type Action string

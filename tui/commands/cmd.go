@@ -1,8 +1,11 @@
 package commands
 
 import (
+	"context"
+
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/kernaxis/gmd/docker/client"
+	"github.com/docker/docker/api/types/container"
+	"github.com/kernaxis/gmd/cachalot"
 )
 
 func SwitchPageCmd(modelCreate func() tea.Model) tea.Cmd {
@@ -15,17 +18,18 @@ func SwitchPageCmd(modelCreate func() tea.Model) tea.Cmd {
 	}
 }
 
-func ContainerCmd(cli *client.Client, action Action, id string) tea.Cmd {
+func ContainerCmd(cli *cachalot.Client, action Action, id string) tea.Cmd {
 	return func() tea.Msg {
 		msg := ContainerActionMsg{ContainerID: id, Action: action}
+		ctx := context.Background()
 
 		switch action {
 		case StartContainerAction:
-			msg.Err = cli.StartContainer(id)
+			msg.Err = cli.ContainerStart(ctx, id, container.StartOptions{})
 		case StopContainerAction:
-			msg.Err = cli.StopContainer(id)
+			msg.Err = cli.ContainerStop(ctx, id, container.StopOptions{})
 		case RestartContainerAction:
-			msg.Err = cli.RestartContainer(id)
+			msg.Err = cli.ContainerRestart(ctx, id, container.StopOptions{})
 		case RecreateContainerAction:
 			msg.ContainerID, msg.Err = cli.RecreateContainer(id)
 		}

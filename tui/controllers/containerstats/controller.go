@@ -6,7 +6,7 @@ import (
 
 	"github.com/alitto/pond/v2"
 	"github.com/docker/docker/api/types/container"
-	"github.com/kernaxis/gmd/docker/client"
+	"github.com/kernaxis/gmd/cachalot"
 )
 
 type StatsMsg struct {
@@ -16,23 +16,31 @@ type StatsMsg struct {
 
 type Controller struct {
 	mu         sync.RWMutex
-	cli        *client.Client
+	cli        *cachalot.Client
 	pool       pond.Pool
 	delay      time.Duration
 	containers map[string]struct{}
 	events     chan StatsMsg
 }
 
-func New(cli *client.Client) *Controller {
+func New() *Controller {
 	pool := pond.NewPool(5, pond.WithQueueSize(5))
 	c := &Controller{
-		cli:        cli,
 		pool:       pool,
 		delay:      500 * time.Millisecond,
 		containers: make(map[string]struct{}),
 		events:     make(chan StatsMsg),
 	}
 	return c
+}
+
+// SetClient wires the cachalot client once it has finished connecting.
+// Until this is called, poll() has nothing to query against, which is fine
+// since Start() is not currently invoked anywhere.
+func (c *Controller) SetClient(cli *cachalot.Client) {
+	c.mu.Lock()
+	c.cli = cli
+	c.mu.Unlock()
 }
 
 func (c *Controller) Start() {
@@ -69,6 +77,7 @@ func (c *Controller) loop() {
 
 func (c *Controller) poll() {
 	c.mu.RLock()
+	cli := c.cli
 	ids := make([]string, 0, len(c.containers))
 	for id := range c.containers {
 		ids = append(ids, id)
@@ -78,7 +87,7 @@ func (c *Controller) poll() {
 	for _, id := range ids {
 		cid := id
 		c.pool.Submit(func() {
-			stats, err := c.cli.ContainerStats(cid)
+			stats, err := cli.ContainerStats(cid)
 			if err != nil {
 				return
 			}

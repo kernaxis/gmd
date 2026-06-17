@@ -2,16 +2,16 @@ package containerupdate
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/kernaxis/gmd/docker/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/kernaxis/gmd/tui/controllers/containerupdate"
 )
 
 type UpdateFinishedMsg struct {
 }
 
-func startUpdate(c *containerupdate.Controller, container types.Container) tea.Cmd {
+func startUpdate(c *containerupdate.Controller, cont container.InspectResponse) tea.Cmd {
 	return func() tea.Msg {
-		c.StartUpdate(container)
+		c.StartUpdate(cont)
 		return containerupdate.ControllerUpdateMsg{}
 	}
 }

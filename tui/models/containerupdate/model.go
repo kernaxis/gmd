@@ -8,15 +8,15 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/kernaxis/gmd/docker/client"
-	"github.com/kernaxis/gmd/docker/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/kernaxis/gmd/cachalot"
 	"github.com/kernaxis/gmd/tui/commands"
 	"github.com/kernaxis/gmd/tui/controllers/containerupdate"
 )
 
 type Model struct {
-	container  types.Container
-	cli        *client.Client
+	container  container.InspectResponse
+	cli        *cachalot.Client
 	controller *containerupdate.Controller
 	screenW    int
 	screenH    int
@@ -36,11 +36,11 @@ var keyMap = &listKeyMap{
 	),
 }
 
-func New(c types.Container, client *client.Client) Model {
-	controller := containerupdate.New(client)
+func New(c container.InspectResponse, cli *cachalot.Client) Model {
+	controller := containerupdate.New(cli)
 	m := Model{
 		container:  c,
-		cli:        client,
+		cli:        cli,
 		controller: controller,
 	}
 

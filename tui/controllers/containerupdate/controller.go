@@ -9,8 +9,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/kernaxis/gmd/docker/client"
-	"github.com/kernaxis/gmd/docker/types"
+	"github.com/kernaxis/gmd/cachalot"
 	style "github.com/kernaxis/gmd/tui/styles"
 )
 
@@ -25,7 +24,7 @@ type createResponse struct {
 
 type Controller struct {
 	m          sync.RWMutex
-	cli        *client.Client
+	cli        *cachalot.Client
 	updateChan chan ControllerUpdateMsg
 
 	order  []string
@@ -33,9 +32,9 @@ type Controller struct {
 	lines  []string
 }
 
-func New(client *client.Client) *Controller {
+func New(cli *cachalot.Client) *Controller {
 	c := Controller{
-		cli:        client,
+		cli:        cli,
 		updateChan: make(chan ControllerUpdateMsg, 10),
 	}
 	return &c
@@ -51,20 +50,20 @@ func (c *Controller) GetLines() []string {
 	return c.lines
 }
 
-func (c *Controller) StartUpdate(container types.Container) {
+func (c *Controller) StartUpdate(cont container.InspectResponse) {
 	c.order = []string{}
 	c.layers = make(map[string]string)
-	go c.updateContainer(container)
+	go c.updateContainer(cont)
 }
 
-func (c *Controller) updateContainer(container types.Container) {
+func (c *Controller) updateContainer(cont container.InspectResponse) {
 
-	containerName := strings.TrimPrefix(container.Name, "/")
+	containerName := strings.TrimPrefix(cont.Name, "/")
 
 	done := make(chan error)
 	defer close(done)
 
-	err := c.cli.PullImageWithProgress(context.Background(), container.Config.Image, func(msg map[string]interface{}) {
+	err := c.cli.PullImageWithProgress(context.Background(), cont.Config.Image, func(msg map[string]interface{}) {
 		var ok bool
 		var status, layerId string
 
@@ -103,7 +102,7 @@ func (c *Controller) updateContainer(container types.Container) {
 	})
 
 	if err != nil {
-		log.Printf("Error pull for image %s : %v", container.Config.Image, err)
+		log.Printf("Error pull for image %s : %v", cont.Config.Image, err)
 		c.m.Lock()
 		c.lines = append(c.lines, fmt.Sprintf("Error pull image: %v", err))
 		c.m.Unlock()
@@ -111,9 +110,9 @@ func (c *Controller) updateContainer(container types.Container) {
 		return
 	}
 
-	containerConfig, err := c.cli.ContainerInspect(container.ID)
+	containerConfig, err := c.cli.ContainerInspect(context.Background(), cont.ID)
 	if err != nil {
-		log.Printf("Error get config for container %s : %v", container.ID, err)
+		log.Printf("Error get config for container %s : %v", cont.ID, err)
 		c.m.Lock()
 		c.lines = append(c.lines, fmt.Sprintf("Error get config: %v", err))
 		c.m.Unlock()
@@ -123,7 +122,7 @@ func (c *Controller) updateContainer(container types.Container) {
 
 	add := true
 	err = spinUntilDone(func() error {
-		return c.cli.StopContainer(container.ID)
+		return c.cli.ContainerStop(context.Background(), cont.ID, container.StopOptions{})
 	}, func(frame string) {
 		c.m.Lock()
 		if add {
@@ -151,7 +150,7 @@ func (c *Controller) updateContainer(container types.Container) {
 
 	add = true
 	err = spinUntilDone(func() error {
-		return c.cli.DeleteContainer(container.ID)
+		return c.cli.ContainerRemove(context.Background(), cont.ID, container.RemoveOptions{})
 	}, func(frame string) {
 		c.m.Lock()
 		if add {
@@ -210,7 +209,7 @@ func (c *Controller) updateContainer(container types.Container) {
 
 	add = true
 	err = spinUntilDone(func() error {
-		return c.cli.StartContainer(cr.Resp.ID)
+		return c.cli.ContainerStart(context.Background(), cr.Resp.ID, container.StartOptions{})
 	}, func(frame string) {
 		c.m.Lock()
 		if add {
