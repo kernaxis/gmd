@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/kernaxis/gmd/cachalot"
 	style "github.com/kernaxis/gmd/tui/styles"
 )
@@ -63,25 +64,21 @@ func (c *Controller) updateContainer(cont container.InspectResponse) {
 	done := make(chan error)
 	defer close(done)
 
-	err := c.cli.PullImageWithProgress(context.Background(), cont.Config.Image, func(msg map[string]interface{}) {
-		var ok bool
-		var status, layerId string
+	err := c.cli.PullImageWithProgress(context.Background(), cont.Config.Image, func(msg *jsonmessage.JSONMessage) {
 
-		if status, ok = msg["status"].(string); !ok {
-			return
-		}
-
-		if layerId, ok = msg["id"].(string); !ok {
-			return
-		}
-
+		layerId := msg.ID
 		if layerId == "" {
 			layerId = fmt.Sprintf("general-%d", len(c.layers)) // évite collision
 		}
 
-		line := status
-		if progress, ok := msg["progress"].(string); ok {
-			line += " " + progress
+		line := msg.Status
+
+		if msg.Progress != nil {
+			currentProgress := msg.Progress.Current
+			totalProgress := msg.Progress.Total
+			if currentProgress > 0 && totalProgress > 0 {
+				line += " " + msg.Progress.String()
+			}
 		}
 
 		c.m.Lock()

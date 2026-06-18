@@ -20,6 +20,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -117,7 +118,7 @@ func (c *Client) ContainerStats(id string) (container.StatsResponse, error) {
 
 // PullImageWithProgress pulls an image from its registry, invoking progress
 // for every JSON progress message the daemon streams back.
-func (c *Client) PullImageWithProgress(ctx context.Context, imageRef string, progress func(map[string]interface{})) (err error) {
+func (c *Client) PullImageWithProgress(ctx context.Context, imageRef string, progress func(*jsonmessage.JSONMessage)) (err error) {
 	reader, err := c.ImagePull(ctx, imageRef, image.PullOptions{})
 	if err != nil {
 		return err
@@ -128,11 +129,11 @@ func (c *Client) PullImageWithProgress(ctx context.Context, imageRef string, pro
 
 	decoder := json.NewDecoder(reader)
 	for decoder.More() {
-		var msg map[string]interface{}
+		var msg jsonmessage.JSONMessage
 		if err := decoder.Decode(&msg); err != nil {
 			return err
 		}
-		progress(msg)
+		progress(&msg)
 	}
 
 	return nil
