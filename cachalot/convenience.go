@@ -146,17 +146,27 @@ func (c *Client) CheckUpdate(containerID string) (bool, error) {
 
 	cont, err := c.ContainerInspect(ctx, containerID)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("unable to inspect container <%s>: %w", containerID, err)
 	}
 
-	localDigests, err := c.getLocalDigests(ctx, cont.Config.Image)
-	if err != nil {
-		return false, err
+	localImageRef := cont.Image
+	if localImageRef == "" && cont.Config != nil {
+		localImageRef = cont.Config.Image
 	}
 
-	remoteDigest, err := getRemoteDigest(cont.Config.Image)
+	localDigests, err := c.getLocalDigests(ctx, localImageRef)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("unable to get local digests for container <%s>: %w", containerID, err)
+	}
+
+	remoteImageRef := ""
+	if cont.Config != nil {
+		remoteImageRef = cont.Config.Image
+	}
+
+	remoteDigest, err := getRemoteDigest(remoteImageRef)
+	if err != nil {
+		return false, fmt.Errorf("unable to get remote digest for container <%s>: %w", containerID, err)
 	}
 
 	f := func(s string) bool {
