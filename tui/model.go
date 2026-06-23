@@ -16,6 +16,7 @@ import (
 	"github.com/kernaxis/gmd/tui/models/containers"
 	"github.com/kernaxis/gmd/tui/models/images"
 	"github.com/kernaxis/gmd/tui/models/maintab"
+	style "github.com/kernaxis/gmd/tui/styles"
 )
 
 // ---------------------------------------------------
@@ -23,17 +24,23 @@ import (
 // ---------------------------------------------------
 
 type Model struct {
-	cli    *cachalot.Client
-	stack  []tea.Model
-	toasts []componants.Toast
+	cli                *cachalot.Client
+	stack              []tea.Model
+	toasts             []componants.Toast
+	version            string
+	versionLatest      string
+	versionStatus      versionStatus
+	versionSpinnerStep int
 
 	screeWidth   int
 	screenHeight int
 }
 
-func NewModel() (Model, error) {
+func NewModel(version string) (Model, error) {
 	m := Model{
-		stack: []tea.Model{maintab.New()},
+		stack:         []tea.Model{maintab.New()},
+		version:       version,
+		versionStatus: versionStatusChecking,
 	}
 
 	return m, nil
@@ -43,6 +50,8 @@ func (m Model) Init() tea.Cmd {
 	top := m.stack[len(m.stack)-1]
 	return tea.Batch(
 		StartDockerClient(),
+		CheckLatestVersion(m.version),
+		TickVersionSpinner(),
 		top.Init(),
 	)
 }
@@ -58,6 +67,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.screeWidth = msg.Width
 		m.screenHeight = msg.Height
+
+	case versionCheckMsg:
+		if msg.err != nil {
+			m.versionStatus = versionStatusError
+			return m, nil
+		}
+		m.versionLatest = msg.latest
+		if msg.upToDate {
+			m.versionStatus = versionStatusUpToDate
+		} else {
+			m.versionStatus = versionStatusUpdateAvailable
+		}
+		return m, nil
+
+	case versionSpinnerTickMsg:
+		if m.versionStatus != versionStatusChecking {
+			return m, nil
+		}
+		m.versionSpinnerStep++
+		return m, TickVersionSpinner()
 
 	case tea.KeyMsg:
 		if searchable, ok := m.stack[len(m.stack)-1].(componants.Searchable); ok && searchable.IsSearching() {
@@ -290,22 +319,62 @@ func (m Model) renderToasts() string {
 	return lipgloss.JoinVertical(lipgloss.Right, out...)
 }
 
+func (m Model) renderBottomRight() string {
+	version := strings.TrimSpace(m.version)
+	if version == "" {
+		version = "dev"
+	}
+
+	right := style.Inactive().Render(version)
+
+	switch m.versionStatus {
+	case versionStatusChecking:
+		spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+		return lipgloss.JoinHorizontal(
+			lipgloss.Center,
+			style.Spinner().Render(spinner[m.versionSpinnerStep%len(spinner)]),
+			" ",
+			right,
+		)
+	case versionStatusUpToDate:
+		return lipgloss.JoinHorizontal(
+			lipgloss.Center,
+			style.Success().Render("✔"),
+			" ",
+			right,
+		)
+	case versionStatusUpdateAvailable:
+		left := style.Warning().Render("⚠ update available, new version :")
+		if m.versionLatest != "" {
+			right = lipgloss.JoinHorizontal(lipgloss.Center, style.Warning().Render("v"+m.versionLatest + " <- "), " ", right)
+		}
+		return lipgloss.JoinHorizontal(lipgloss.Center, left, " ", right)
+	default:
+		return lipgloss.JoinHorizontal(
+			lipgloss.Center,
+			style.Inactive().Render("?"),
+			" ",
+			right,
+		)
+	}
+}
+
 func (m Model) View() string {
 	top := m.stack[len(m.stack)-1]
 	baseView := top.View()
-	//return top.View()
 
-	toasts := m.renderToasts()
-	if toasts == "" {
-		return baseView
+	var overlayParts []string
+	if toasts := m.renderToasts(); toasts != "" {
+		overlayParts = append(overlayParts, toasts)
 	}
+	overlayParts = append(overlayParts, m.renderBottomRight())
 
 	overlay := lipgloss.Place(
-		m.screeWidth-10,
-		m.screenHeight-10,
+		max(0, m.screeWidth-2),
+		max(0, m.screenHeight-1),
 		lipgloss.Right,
 		lipgloss.Bottom,
-		toasts,
+		lipgloss.JoinVertical(lipgloss.Right, overlayParts...),
 	)
 
 	return mergeOverlay(baseView, overlay)

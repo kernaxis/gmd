@@ -7,7 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func Start(debugFile string) (err error) {
+func Start(debugFile, version string) (err error) {
 
 	if debugFile != "" {
 		f, err := tea.LogToFile(debugFile, "debug")
@@ -20,7 +20,7 @@ func Start(debugFile string) (err error) {
 		log.SetOutput(io.Discard)
 	}
 
-	model, err := NewModel()
+	model, err := NewModel(version)
 
 	if err != nil {
 		return err

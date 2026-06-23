@@ -22,7 +22,7 @@ var (
 		Long:    `The Definitive TUI to manage docker objects with ease.`,
 		Version: version + " (" + buildDate + ")",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return tui.Start(debugfile)
+			return tui.Start(debugfile, version)
 		},
 	}
 )

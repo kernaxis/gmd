@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"runtime"
 
-	"github.com/creativeprojects/go-selfupdate"
 	"github.com/spf13/cobra"
+
+	"github.com/kernaxis/gmd/updater"
 )
 
 func init() {
@@ -28,40 +28,33 @@ var updateCmd = &cobra.Command{
 }
 
 func update(version string) error {
-
-	exe, err := selfupdate.ExecutablePath()
+	checker, err := updater.NewChecker()
 	if err != nil {
-		return fmt.Errorf("error occurred while getting path to executable: %w", err)
+		return err
 	}
 
-	updaterConfig := selfupdate.Config{
-		Validator: &selfupdate.ChecksumValidator{UniqueFilename: "checksums.txt"},
-	}
-
-	updater, err := selfupdate.NewUpdater(updaterConfig)
+	exe, err := updater.ExecutablePath()
 	if err != nil {
-		return fmt.Errorf("error occurred while creating updater: %w", err)
+		return err
 	}
 
 	fmt.Println("→ Checking for latest version...")
-	latest, found, err := updater.DetectLatest(context.Background(), selfupdate.ParseSlug("kernaxis/gmd"))
+	result, upToDate, err := checker.DetectLatest(context.Background(), version)
 	if err != nil {
-		return fmt.Errorf("an error occurred while detecting version: %w", err)
-	}
-	if !found {
-		return fmt.Errorf("latest version for %s/%s could not be found", runtime.GOOS, runtime.GOARCH)
+		return err
 	}
 
-	if latest.LessOrEqual(version) {
-		fmt.Println("✔ Already up to date:", latest.Version())
+	if upToDate {
+		fmt.Println("✔ Already up to date:", result.Latest)
 		return nil
 	}
 
-	fmt.Println("→ New version available:", latest.Version())
+	fmt.Println("→ New version available:", result.Latest)
 
-	if err := updater.UpdateTo(context.Background(), latest, exe); err != nil {
-		return fmt.Errorf("error occurred while updating binary: %w", err)
+	updatedVersion, err := checker.UpdateToLatest(context.Background(), exe)
+	if err != nil {
+		return err
 	}
-	fmt.Printf("✔ Successfully updated to version %s\n", latest.Version())
+	fmt.Printf("✔ Successfully updated to version %s\n", updatedVersion)
 	return nil
 }
